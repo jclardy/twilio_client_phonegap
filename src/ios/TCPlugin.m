@@ -41,7 +41,8 @@
 }
 
 -(void)device:(TCDevice *)device didReceiveIncomingConnection:(TCConnection *)connection {
-    self.connection = connection;    
+    self.connection = connection;
+    self.connection.delegate = self;
     [self javascriptCallback:@"onincoming"];
 }
 
@@ -83,7 +84,7 @@
 -(void)deviceSetup:(CDVInvokedUrlCommand*)command {
     self.callback = command.callbackId;
     self.device = [[TCDevice alloc] initWithCapabilityToken:[command.arguments objectAtIndex:0] delegate:self];
-    
+
     // Disable sounds. was getting EXC_BAD_ACCESS
     //self.device.incomingSoundEnabled   = NO;
     //self.device.outgoingSoundEnabled   = NO;
@@ -98,12 +99,12 @@
             [self javascriptCallback:@"onready"];
             NSLog(@"State: Ready");
             break;
-            
+
         case TCDeviceStateOffline:
             [self javascriptCallback:@"onoffline"];
             NSLog(@"State: Offline");
             break;
-            
+
         default:
             break;
     }
@@ -123,20 +124,20 @@
         case TCDeviceStateBusy:
             state = @"busy";
             break;
-            
+
         case TCDeviceStateReady:
             state = @"ready";
             break;
-            
+
         case TCDeviceStateOffline:
             state = @"offline";
             break;
-            
+
         default:
-            break;        
+            break;
     }
-    
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:state];    
+
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:state];
     [self performSelectorOnMainThread:@selector(writeJavascript:) withObject:[result toSuccessCallbackString:command.callbackId] waitUntilDone:NO];
 }
 
@@ -173,23 +174,23 @@
         case TCConnectionStateConnected:
             state = @"open";
             break;
-            
+
         case TCConnectionStateConnecting:
             state = @"connecting";
             break;
-            
+
         case TCConnectionStatePending:
             state = @"pending";
             break;
-            
+
         case TCConnectionStateDisconnected:
             state = @"closed";
-        
+
         default:
-            break;        
+            break;
     }
-        
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:state];    
+
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:state];
     [self performSelectorOnMainThread:@selector(writeJavascript:) withObject:[result toSuccessCallbackString:command.callbackId] waitUntilDone:NO];
 }
 
@@ -206,9 +207,9 @@
     @catch(NSException *exception) {
         NSLog(@"Couldn't Cancel Notification");
     }
-    
+
     NSString *alertBody = [command.arguments objectAtIndex:0];
-    
+
     NSString *ringSound = @"incoming.wav";
     if([command.arguments count] == 2) {
         ringSound = [command.arguments objectAtIndex:1];
@@ -253,7 +254,7 @@
     NSDictionary *options   = [NSDictionary dictionaryWithObjectsAndKeys:event, @"callback", arguments, @"arguments", nil];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:options];
     result.keepCallback     = [NSNumber numberWithBool:YES];
-    
+
     [self performSelectorOnMainThread:@selector(writeJavascript:) withObject:[result toSuccessCallbackString:self.callback] waitUntilDone:NO];
 }
 
@@ -265,7 +266,7 @@
     NSDictionary *object    = [NSDictionary dictionaryWithObjectsAndKeys:[error localizedDescription], @"message", nil];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:object];
     result.keepCallback     = [NSNumber numberWithBool:YES];
-    
+
     [self performSelectorOnMainThread:@selector(writeJavascript:) withObject:[result toErrorCallbackString:self.callback] waitUntilDone:NO];
 }
 
