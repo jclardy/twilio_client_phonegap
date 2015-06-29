@@ -41,6 +41,13 @@
 }
 
 -(void)device:(TCDevice *)device didReceiveIncomingConnection:(TCConnection *)connection {
+    UILocalNotification *localNotif = [[UILocalNotification alloc] init];
+    if (localNotif == nil)
+            return;
+    localNotif.fireDate = [NSDate date];
+    localNotif.alertBody = [NSString stringWithFormat:@"Incoming connection from %@", connection.From];
+
+    [[UIApplication sharedApplication] scheduleLocalNotification:localNotif];
     self.connection = connection;
     self.connection.delegate = self;
     [self javascriptCallback:@"onincoming"];
@@ -89,6 +96,13 @@
     //self.device.incomingSoundEnabled   = NO;
     //self.device.outgoingSoundEnabled   = NO;
     //self.device.disconnectSoundEnabled = NO;
+
+    // Local notification setup
+    UIUserNotificationType types = UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert;
+
+    UIUserNotificationSettings *mySettings = [UIUserNotificationSettings settingsForTypes:types categories:nil];
+
+    [[UIApplication sharedApplication] registerUserNotificationSettings:mySettings];
 
     [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(deviceStatusEvent) userInfo:nil repeats:NO];
 }
