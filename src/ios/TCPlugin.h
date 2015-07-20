@@ -40,5 +40,6 @@
 -(void)showNotification:(CDVInvokedUrlCommand*)command;
 -(void)cancelNotification:(CDVInvokedUrlCommand*)command;
 -(void)setSpeaker:(CDVInvokedUrlCommand*)command;
+-(void)setNotificationText:(CDVInvokedUrlCommand*)command;
 
 @end

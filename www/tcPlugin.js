@@ -26,6 +26,22 @@
         Cordova.exec(success, error, "TCPlugin", "deviceSetup", [token]);
     }
 
+    TwilioPlugin.Device.prototype.setupWithAccountSession = function(accountUUID, sessionToken) {
+      // Take a token and instantiate a new device object
+      var error = function(error) {
+          if(delegate['ondeviceerror']) delegate['ondeviceerror'](error)
+          if(delegate['onconnectionerror']) delegate['onconnectionerror'](error)
+      }
+
+      var success = function(callback) {
+          var argument = callback['arguments'] || new TwilioPlugin.Connection();
+          if (delegate[callback['callback']]) delegate[callback['callback']](argument);
+      }
+
+      Cordova.exec(success, error, "TCPlugin", "deviceSetupWithAccountSession", [accountUUID, sessionToken]);
+
+    }
+
     // polymorphic function. if called with function as an argument, the function is invoked
     // when a connection has been established. if called with an object a connection is established with those options
     TwilioPlugin.Device.prototype.connect = function(argument) {
@@ -34,6 +50,12 @@
         } else if (typeof(argument) == 'object') {
             Cordova.exec(null,null,"TCPlugin","connect", [argument])
         }
+    }
+
+    // Sets the notification text on an incoming and missed call (iOS only right now)
+    // Use %phone% to insert the formatted phone string into the text
+    TwilioPlugin.Device.prototype.setNotificationText = function(incomingText, missedConnectionText) {
+      Cordova.exec(null, null, "TCPlugin", "setNotificationText", [incomingText, missedConnectionText]);
     }
 
     TwilioPlugin.Device.prototype.disconnectAll = function() {
@@ -90,7 +112,7 @@
         var args = [alertBody, ringSound];
         if(ringSound === "undefined") {
             args = [alertBody];
-        }    
+        }
         Cordova.exec(null, null, "TCPlugin", "showNotification", args);
     }
 
@@ -99,7 +121,7 @@
     }
 
     TwilioPlugin.Connection.prototype.setSpeaker = function(mode) {
-        // "on" or "off"        
+        // "on" or "off"
         Cordova.exec(null, null, "TCPlugin", "setSpeaker", [mode]);
     }
 
@@ -134,7 +156,7 @@
     TwilioPlugin.Connection.prototype.status = function(fn) {
         Cordova.exec(fn, null, "TCPlugin", "connectionStatus", []);
     }
-	
+
 	    TwilioPlugin.Connection.prototype.parameters = function(fn) {
         Cordova.exec(fn, null, "TCPlugin", "connectionParameters", []);
     }

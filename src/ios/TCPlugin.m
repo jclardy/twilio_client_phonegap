@@ -34,9 +34,12 @@
 @synthesize connection = _connection;
 @synthesize ringNotification = _ringNotification;
 
-# pragma mark device delegate method
+#pragma mark device delegate method
 
 -(void)device:(TCDevice *)device didStopListeningForIncomingConnections:(NSError *)error {
+    [[NSUserDefaults standardUserDefaults] setObject:nil forKey:@"TwilioToken"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    [self getTwilioToken];
     [self javascriptErrorback:error];
 }
 
@@ -45,7 +48,10 @@
     if (localNotif == nil)
             return;
     localNotif.fireDate = [NSDate date];
-    localNotif.alertBody = [NSString stringWithFormat:@"Incoming connection from %@", connection.From];
+
+    NSString *incomingText = [[[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"] stringByReplacingOccurrencesOfString:@"%phone%" withString:connection.From];
+
+    localNotif.alertBody = incomingText;
 
     [[UIApplication sharedApplication] scheduleLocalNotification:localNotif];
     self.connection = connection;
@@ -62,6 +68,50 @@
 -(void)deviceDidStartListeningForIncomingConnections:(TCDevice *)device {
     // What to do here? The JS library doesn't have an event for this.
 }
+
+
+- (void)getTwilioToken {
+    NSString *oldToken = [[NSUserDefaults standardUserDefaults] objectForKey:@"TwilioToken"];
+    if (oldToken != nil) {
+        [self setupDeviceWithToken:oldToken];
+        return;
+    }
+
+    NSString *accountUUID = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCAccountUUID"]; //trapit
+    NSString *sessionToken = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCSessionToken"]; //whatever
+    NSString *dataUrl = [NSString stringWithFormat:@"http://104.131.193.221:5000/capability-token?account_session__token=%@&account_session__account__info__uuid=%@", accountUUID, sessionToken];
+    NSURL *url = [NSURL URLWithString:dataUrl];
+
+    NSData *data = [NSData dataWithContentsOfURL:url];
+
+    NSDictionary *sipSession = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+
+    NSString *token = sipSession[@"sip_auth"][@"password"];
+
+    if (token.length > 0) {
+        NSLog(@"Got new Token: %@", token);
+        [[NSUserDefaults standardUserDefaults] setObject:token forKey:@"TwilioToken"];
+        [self setupDeviceWithToken:token];
+    }
+
+}
+
+- (void)setupDeviceWithToken:(NSString*)token {
+    if (self.device == nil) {
+        NSLog(@"Creating device");
+        self.device = [[TCDevice alloc] initWithCapabilityToken:token delegate:self];
+    } else {
+        NSLog(@"Device exists");
+        [self.device updateCapabilityToken:token];
+    }
+}
+
+- (void)setupDeviceWithAccountUUID:(NSString*)accountUUID sessionToken:(NSString*)sessionToken {
+    [[NSUserDefaults standardUserDefaults] setObject:accountUUID forKey:@"TCAccountUUID"];
+    [[NSUserDefaults standardUserDefaults] setObject:sessionToken forKey:@"TCSessionToken"];
+    [self getTwilioToken];
+}
+
 
 # pragma mark connection delegate methods
 
@@ -105,6 +155,26 @@
     [[UIApplication sharedApplication] registerUserNotificationSettings:mySettings];
 
     [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(deviceStatusEvent) userInfo:nil repeats:NO];
+}
+
+-(void)deviceSetupWithAccountSession:(CDVInvokedUrlCommand*)command {
+  self.callback = command.callbackId;
+
+  [self setupDeviceWithAccountUUID:[command.arguments objectAtIndex:0] sessionToken:[command.arguments objectAtIndex:1]];
+
+  // Disable sounds. was getting EXC_BAD_ACCESS
+  //self.device.incomingSoundEnabled   = NO;
+  //self.device.outgoingSoundEnabled   = NO;
+  //self.device.disconnectSoundEnabled = NO;
+
+  // Local notification setup
+  UIUserNotificationType types = UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert;
+
+  UIUserNotificationSettings *mySettings = [UIUserNotificationSettings settingsForTypes:types categories:nil];
+
+  [[UIApplication sharedApplication] registerUserNotificationSettings:mySettings];
+
+  [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(deviceStatusEvent) userInfo:nil repeats:NO];
 }
 
 -(void)deviceStatusEvent {
@@ -260,6 +330,18 @@
             &audioRouteOverride
         );
     }
+}
+
+/**
+  * Sets the text for notifications. Use %phone% to insert the formatted phone number into your string.
+  */
+-(void)setNotificationText:(CDVInvokedUrlCommand*)command {
+  NSString *incomingText = [command.arguments objectAtIndex:0];
+  NSString *missedText = [command.arguments objectAtIndex:1];
+
+  [[NSUserDefaults standardUserDefaults] setObject:incomingText forKey:@"TCIncomingText"];
+  [[NSUserDefaults standardUserDefaults] setObject:missedText forKey:@"TCMissedText"];
+  [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
 # pragma mark private methods
