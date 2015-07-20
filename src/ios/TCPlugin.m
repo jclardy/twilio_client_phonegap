@@ -49,9 +49,12 @@
             return;
     localNotif.fireDate = [NSDate date];
 
-    NSString *incomingText = [[[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"] stringByReplacingOccurrencesOfString:@"%phone%" withString:connection.From];
+    NSString *phone = connection.parameters[@"From"];
+    NSString *incoming = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"];
+    NSString *incomingText = [incoming stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
 
     localNotif.alertBody = incomingText;
+    localNotif.userInfo = @{ @"info" : @"???" };
 
     [[UIApplication sharedApplication] scheduleLocalNotification:localNotif];
     self.connection = connection;
@@ -79,7 +82,7 @@
 
     NSString *accountUUID = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCAccountUUID"]; //trapit
     NSString *sessionToken = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCSessionToken"]; //whatever
-    NSString *dataUrl = [NSString stringWithFormat:@"http://104.131.193.221:5000/capability-token?account_session__token=%@&account_session__account__info__uuid=%@", accountUUID, sessionToken];
+    NSString *dataUrl = [NSString stringWithFormat:@"http://104.131.193.221:5000/capability-token?account_session__token=%@&account_session__account__info__uuid=%@", sessionToken, accountUUID];
     NSURL *url = [NSURL URLWithString:dataUrl];
 
     NSData *data = [NSData dataWithContentsOfURL:url];
