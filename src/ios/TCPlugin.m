@@ -20,7 +20,7 @@
 @property(nonatomic, strong) NSString     *callback;
 @property(atomic, strong)    TCConnection *connection;
 @property(atomic, strong)    UILocalNotification *ringNotification;
-
+@property (atomic, strong) UILocalNotification *callNotification;
 -(void)javascriptCallback:(NSString *)event;
 -(void)javascriptCallback:(NSString *)event withArguments:(NSDictionary *)arguments;
 -(void)javascriptErrorback:(NSError *)error;
@@ -34,6 +34,10 @@
 @synthesize connection = _connection;
 @synthesize ringNotification = _ringNotification;
 
+- (void)pluginInitialize {
+    [self getTwilioToken];
+}
+
 #pragma mark device delegate method
 
 -(void)device:(TCDevice *)device didStopListeningForIncomingConnections:(NSError *)error {
@@ -44,16 +48,22 @@
 }
 
 -(void)device:(TCDevice *)device didReceiveIncomingConnection:(TCConnection *)connection {
-    UILocalNotification *localNotif = [[UILocalNotification alloc] init];
-    if (localNotif == nil)
+    self.callNotification = [[UILocalNotification alloc] init];
+    if (self.callNotification == nil)
             return;
-    localNotif.fireDate = [NSDate date];
+    self.callNotification.fireDate = [NSDate date];
 
-    NSString *incomingText = [[[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"] stringByReplacingOccurrencesOfString:@"%phone%" withString:connection.From];
+    NSString *phone = connection.parameters[@"From"];
+    NSRange range = [phone rangeOfString:@"747+"];
+    if (range.location == 0) {
+        phone = [phone stringByReplacingCharactersInRange:range withString:@"+1"];
+    }
+    NSString *incoming = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"];
+    NSString *incomingText = [incoming stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
 
-    localNotif.alertBody = incomingText;
-
-    [[UIApplication sharedApplication] scheduleLocalNotification:localNotif];
+    self.callNotification.alertBody = incomingText;
+    self.callNotification.userInfo = @{ @"info" : @"???" };
+    [[UIApplication sharedApplication] scheduleLocalNotification:self.callNotification];
     self.connection = connection;
     self.connection.delegate = self;
     [self javascriptCallback:@"onincoming"];
@@ -79,7 +89,13 @@
 
     NSString *accountUUID = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCAccountUUID"]; //trapit
     NSString *sessionToken = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCSessionToken"]; //whatever
-    NSString *dataUrl = [NSString stringWithFormat:@"http://104.131.193.221:5000/capability-token?account_session__token=%@&account_session__account__info__uuid=%@", accountUUID, sessionToken];
+
+    //Check if plugin has been setup.
+    if (accountUUID == nil) {
+        return;
+    }
+
+    NSString *dataUrl = [NSString stringWithFormat:@"http://104.131.193.221:5000/capability-token?account_session__token=%@&account_session__account__info__uuid=%@", sessionToken, accountUUID];
     NSURL *url = [NSURL URLWithString:dataUrl];
 
     NSData *data = [NSData dataWithContentsOfURL:url];
@@ -125,12 +141,34 @@
 }
 
 -(void)connectionDidConnect:(TCConnection*)connection {
+    self.callNotification = nil;
     self.connection = connection;
     [self javascriptCallback:@"onconnect"];
     if([connection isIncoming]) [self javascriptCallback:@"onaccept"];
 }
 
 -(void)connectionDidDisconnect:(TCConnection*)connection {
+
+    if (self.callNotification != nil) {
+        [[UIApplication sharedApplication] cancelLocalNotification:self.callNotification];
+        self.callNotification = [[UILocalNotification alloc] init];
+        self.callNotification.fireDate = [NSDate date];
+
+        NSString *phone = connection.parameters[@"From"];
+        NSRange range = [phone rangeOfString:@"747+"];
+        if (range.location == 0) {
+            phone = [phone stringByReplacingCharactersInRange:range withString:@"+1"];
+        }
+        NSString *missed = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCMissedText"];
+        NSString *missedText = [missed stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
+
+        self.callNotification.alertBody = missedText;
+        self.callNotification.userInfo = @{ @"info" : @"???" };
+        [[UIApplication sharedApplication] scheduleLocalNotification:self.callNotification];
+
+        self.callNotification = nil;
+    }
+
     self.connection = connection;
     [self javascriptCallback:@"ondevicedisconnect"];
     [self javascriptCallback:@"onconnectiondisconnect"];
@@ -168,11 +206,14 @@
   //self.device.disconnectSoundEnabled = NO;
 
   // Local notification setup
-  UIUserNotificationType types = UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert;
+    if ([[[UIDevice currentDevice] systemVersion] floatValue] > 8.0f) {
 
-  UIUserNotificationSettings *mySettings = [UIUserNotificationSettings settingsForTypes:types categories:nil];
+        UIUserNotificationType types = UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert;
 
-  [[UIApplication sharedApplication] registerUserNotificationSettings:mySettings];
+        UIUserNotificationSettings *mySettings = [UIUserNotificationSettings settingsForTypes:types categories:nil];
+
+        [[UIApplication sharedApplication] registerUserNotificationSettings:mySettings];
+    }
 
   [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(deviceStatusEvent) userInfo:nil repeats:NO];
 }
