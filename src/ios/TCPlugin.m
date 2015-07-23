@@ -54,6 +54,20 @@
     self.callNotification.fireDate = [NSDate date];
 
     NSString *phone = connection.parameters[@"From"];
+    phone = [self fixWierdPhoneNumber:phone];
+
+    NSString *incoming = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"];
+    NSString *incomingText = [incoming stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
+
+    self.callNotification.alertBody = incomingText;
+    self.callNotification.userInfo = @{ @"info" : @"???" };
+    [[UIApplication sharedApplication] scheduleLocalNotification:self.callNotification];
+    self.connection = connection;
+    self.connection.delegate = self;
+    [self javascriptCallback:@"onincoming"];
+}
+
+- (NSString*)fixWierdPhoneNumber:(NSString*)phone {
     NSRange range = [phone rangeOfString:@"747"];
     if (range.location == 0) {
         phone = [phone stringByReplacingCharactersInRange:range withString:@""];
@@ -72,16 +86,7 @@
     } else {
         // keep phone as is.
     }
-
-    NSString *incoming = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"];
-    NSString *incomingText = [incoming stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
-
-    self.callNotification.alertBody = incomingText;
-    self.callNotification.userInfo = @{ @"info" : @"???" };
-    [[UIApplication sharedApplication] scheduleLocalNotification:self.callNotification];
-    self.connection = connection;
-    self.connection.delegate = self;
-    [self javascriptCallback:@"onincoming"];
+    return phone;
 }
 
 -(void)device:(TCDevice *)device didReceivePresenceUpdate:(TCPresenceEvent *)presenceEvent {
@@ -172,10 +177,8 @@
         self.callNotification.fireDate = [NSDate date];
 
         NSString *phone = connection.parameters[@"From"];
-        NSRange range = [phone rangeOfString:@"747+"];
-        if (range.location == 0) {
-            phone = [phone stringByReplacingCharactersInRange:range withString:@"+1"];
-        }
+        phone = [self fixWierdPhoneNumber:phone];
+
         NSString *missed = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCMissedText"];
         NSString *missedText = [missed stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
 
