@@ -68,6 +68,7 @@ You need to download __Twilio Client for Android__ from https://www.twilio.com/d
         <framework src="AVFoundation.framework" />
         <framework src="CFNetwork.framework" />
         <framework src="SystemConfiguration.framework" />
+        <framework src="CoreTelephony.framework" />
 
         <header-file src="src/ios/TCPlugin.h" />
         <source-file src="src/ios/TCPlugin.m" />
@@ -78,6 +79,8 @@ You need to download __Twilio Client for iOS__ from https://www.twilio.com/docs/
 * Add the Twilio Client static libraries (the .a files in the Libraries folder) to your Xcode project
 
 * Add the Twilio Client headers files (the .h files in the Headers folder) to your Xcode project
+
+Also requires https://github.com/iziz/libPhoneNumber-iOS
         </info>
     </platform>
 </plugin>

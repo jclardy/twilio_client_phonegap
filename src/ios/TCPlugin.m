@@ -8,7 +8,7 @@
 
 #import "TCPlugin.h"
 #import  <AVFoundation/AVFoundation.h>
-
+#import "NBPhoneNumberUtil.h"
 
 @interface TCPlugin() {
     TCDevice     *_device;
@@ -54,10 +54,25 @@
     self.callNotification.fireDate = [NSDate date];
 
     NSString *phone = connection.parameters[@"From"];
-    NSRange range = [phone rangeOfString:@"747+"];
+    NSRange range = [phone rangeOfString:@"747"];
     if (range.location == 0) {
-        phone = [phone stringByReplacingCharactersInRange:range withString:@"+1"];
+        phone = [phone stringByReplacingCharactersInRange:range withString:@""];
     }
+    range = [phone rangeOfString:@"+"];
+    if (range.location == 0) {
+        phone = [phone stringByReplacingCharactersInRange:range withString:@""];
+    }
+
+    NBPhoneNumberUtil *phoneUtil = [[NBPhoneNumberUtil alloc] init];
+    NSError *anError = nil;
+    NBPhoneNumber *phoneNumber = [phoneUtil parse:phone defaultRegion:@"US" error:&anError];
+
+    if (anError == nil) {
+        phone = [phoneUtil format:phoneNumber numberFormat:NBEPhoneNumberFormatNATIONAL error:nil];
+    } else {
+        // keep phone as is.
+    }
+
     NSString *incoming = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"];
     NSString *incomingText = [incoming stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
 
@@ -89,13 +104,14 @@
 
     NSString *accountUUID = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCAccountUUID"]; //trapit
     NSString *sessionToken = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCSessionToken"]; //whatever
+    NSString *serverURL = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCURL"]; //http://104.131.193.221:5000/
 
     //Check if plugin has been setup.
     if (accountUUID == nil) {
         return;
     }
 
-    NSString *dataUrl = [NSString stringWithFormat:@"http://104.131.193.221:5000/capability-token?account_session__token=%@&account_session__account__info__uuid=%@", sessionToken, accountUUID];
+    NSString *dataUrl = [NSString stringWithFormat:@"%@capability-token?account_session__token=%@&account_session__account__info__uuid=%@", serverURL, sessionToken, accountUUID];
     NSURL *url = [NSURL URLWithString:dataUrl];
 
     NSData *data = [NSData dataWithContentsOfURL:url];
@@ -122,9 +138,10 @@
     }
 }
 
-- (void)setupDeviceWithAccountUUID:(NSString*)accountUUID sessionToken:(NSString*)sessionToken {
+- (void)setupDeviceWithAccountUUID:(NSString*)accountUUID sessionToken:(NSString*)sessionToken serverURL:(NSString*)serverURL {
     [[NSUserDefaults standardUserDefaults] setObject:accountUUID forKey:@"TCAccountUUID"];
     [[NSUserDefaults standardUserDefaults] setObject:sessionToken forKey:@"TCSessionToken"];
+    [[NSUserDefaults standardUserDefaults] setObject:serverURL forKey:@"TCURL"];
     [self getTwilioToken];
 }
 
@@ -198,7 +215,7 @@
 -(void)deviceSetupWithAccountSession:(CDVInvokedUrlCommand*)command {
   self.callback = command.callbackId;
 
-  [self setupDeviceWithAccountUUID:[command.arguments objectAtIndex:0] sessionToken:[command.arguments objectAtIndex:1]];
+  [self setupDeviceWithAccountUUID:[command.arguments objectAtIndex:0] sessionToken:[command.arguments objectAtIndex:1] serverURL:[command.arguments objectAtIndex:2]];
 
   // Disable sounds. was getting EXC_BAD_ACCESS
   //self.device.incomingSoundEnabled   = NO;
@@ -268,6 +285,15 @@
 
 
 # pragma mark javascript connection mapper methods
+
+-(void)reset:(CDVInvokedUrlCommand*)command {
+    [[NSUserDefaults standardUserDefaults] setObject:nil forKey:@"TCAccountUUID"];
+    [[NSUserDefaults standardUserDefaults] setObject:nil forKey:@"TCSessionToken"];
+
+    [self.device disconnectAll];
+    [self.device setDelegate:nil];
+    self.device = nil;
+}
 
 -(void)acceptConnection:(CDVInvokedUrlCommand*)command {
     [self.connection accept];

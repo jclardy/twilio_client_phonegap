@@ -26,7 +26,7 @@
         Cordova.exec(success, error, "TCPlugin", "deviceSetup", [token]);
     }
 
-    TwilioPlugin.Device.prototype.setupWithAccountSession = function(accountUUID, sessionToken) {
+    TwilioPlugin.Device.prototype.setupWithAccountSession = function(accountUUID, sessionToken, serverURL) {
       // Take a token and instantiate a new device object
       var error = function(error) {
           if(delegate['ondeviceerror']) delegate['ondeviceerror'](error)
@@ -38,7 +38,7 @@
           if (delegate[callback['callback']]) delegate[callback['callback']](argument);
       }
 
-      Cordova.exec(success, error, "TCPlugin", "deviceSetupWithAccountSession", [accountUUID, sessionToken]);
+      Cordova.exec(success, error, "TCPlugin", "deviceSetupWithAccountSession", [accountUUID, sessionToken, serverURL]);
 
     }
 
@@ -98,6 +98,10 @@
         incoming: function(boolean) {},
         outgoing: function(boolean) {},
         disconnect: function(boolean) {}
+    }
+
+    TwilioPlugin.Device.prototype.reset = function() {
+        Cordova.exec(null, null, "TCPlugin", "reset", []);
     }
 
     TwilioPlugin.Connection.prototype.accept = function(argument) {
