@@ -58,6 +58,10 @@
       Cordova.exec(null, null, "TCPlugin", "setNotificationText", [incomingText, missedConnectionText]);
     }
 
+    TwilioPlugin.Device.prototype.openAppSettings = function() {
+      Cordova.exec(null, null, "TCPlugin", "openAppSettings", []);
+    }
+
     TwilioPlugin.Device.prototype.disconnectAll = function() {
         Cordova.exec(null,null,"TCPlugin","disconnectAll",[]);
     }

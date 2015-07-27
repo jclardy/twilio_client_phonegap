@@ -54,20 +54,6 @@
     self.callNotification.fireDate = [NSDate date];
 
     NSString *phone = connection.parameters[@"From"];
-    phone = [self fixWierdPhoneNumber:phone];
-
-    NSString *incoming = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"];
-    NSString *incomingText = [incoming stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
-
-    self.callNotification.alertBody = incomingText;
-    self.callNotification.userInfo = @{ @"info" : @"???" };
-    [[UIApplication sharedApplication] scheduleLocalNotification:self.callNotification];
-    self.connection = connection;
-    self.connection.delegate = self;
-    [self javascriptCallback:@"onincoming"];
-}
-
-- (NSString*)fixWierdPhoneNumber:(NSString*)phone {
     NSRange range = [phone rangeOfString:@"747"];
     if (range.location == 0) {
         phone = [phone stringByReplacingCharactersInRange:range withString:@""];
@@ -86,7 +72,16 @@
     } else {
         // keep phone as is.
     }
-    return phone;
+
+    NSString *incoming = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"];
+    NSString *incomingText = [incoming stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
+
+    self.callNotification.alertBody = incomingText;
+    self.callNotification.userInfo = @{ @"info" : @"???" };
+    [[UIApplication sharedApplication] scheduleLocalNotification:self.callNotification];
+    self.connection = connection;
+    self.connection.delegate = self;
+    [self javascriptCallback:@"onincoming"];
 }
 
 -(void)device:(TCDevice *)device didReceivePresenceUpdate:(TCPresenceEvent *)presenceEvent {
@@ -100,6 +95,7 @@
 }
 
 
+
 - (void)getTwilioToken {
     NSString *oldToken = [[NSUserDefaults standardUserDefaults] objectForKey:@"TwilioToken"];
     if (oldToken != nil) {
@@ -109,7 +105,7 @@
 
     NSString *accountUUID = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCAccountUUID"]; //trapit
     NSString *sessionToken = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCSessionToken"]; //whatever
-    NSString *serverURL = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCURL"]; //http://104.131.193.221:5000/
+    NSString *serverURL = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCURL"];
 
     //Check if plugin has been setup.
     if (accountUUID == nil) {
@@ -120,16 +116,18 @@
     NSURL *url = [NSURL URLWithString:dataUrl];
 
     NSData *data = [NSData dataWithContentsOfURL:url];
+    if (data != nil) {
+        NSDictionary *sipSession = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
 
-    NSDictionary *sipSession = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        NSString *token = sipSession[@"sip_auth"][@"password"];
 
-    NSString *token = sipSession[@"sip_auth"][@"password"];
-
-    if (token.length > 0) {
-        NSLog(@"Got new Token: %@", token);
-        [[NSUserDefaults standardUserDefaults] setObject:token forKey:@"TwilioToken"];
-        [self setupDeviceWithToken:token];
+        if (token.length > 0) {
+            NSLog(@"Got new Token: %@", token);
+            [[NSUserDefaults standardUserDefaults] setObject:token forKey:@"TwilioToken"];
+            [self setupDeviceWithToken:token];
+        }
     }
+
 
 }
 
@@ -177,8 +175,10 @@
         self.callNotification.fireDate = [NSDate date];
 
         NSString *phone = connection.parameters[@"From"];
-        phone = [self fixWierdPhoneNumber:phone];
-
+        NSRange range = [phone rangeOfString:@"747+"];
+        if (range.location == 0) {
+            phone = [phone stringByReplacingCharactersInRange:range withString:@"+1"];
+        }
         NSString *missed = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCMissedText"];
         NSString *missedText = [missed stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
 
@@ -236,6 +236,16 @@
     }
 
   [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(deviceStatusEvent) userInfo:nil repeats:NO];
+}
+
+-(void)openAppSettings {
+    if (&UIApplicationOpenSettingsURLString != NULL) {
+        NSURL *url = [NSURL URLWithString:UIApplicationOpenSettingsURLString];
+        [[UIApplication sharedApplication] openURL:url];
+    }
+    else {
+        // Present some dialog telling the user to open the settings app.
+    }
 }
 
 -(void)deviceStatusEvent {
