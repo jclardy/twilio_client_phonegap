@@ -75,7 +75,7 @@
         // keep phone as is.
     }
     range = [phone rangeOfString:@"+"];
-    if (range.location == 0) {
+    if (range.location == 0 && phone.length == 11) { // no country code
         phone = [phone stringByReplacingCharactersInRange:range withString:@""];
     }
     return phone;
