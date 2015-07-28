@@ -54,24 +54,7 @@
     self.callNotification.fireDate = [NSDate date];
 
     NSString *phone = connection.parameters[@"From"];
-    NSRange range = [phone rangeOfString:@"747"];
-    if (range.location == 0) {
-        phone = [phone stringByReplacingCharactersInRange:range withString:@""];
-    }
-    range = [phone rangeOfString:@"+"];
-    if (range.location == 0) {
-        phone = [phone stringByReplacingCharactersInRange:range withString:@""];
-    }
-
-    NBPhoneNumberUtil *phoneUtil = [[NBPhoneNumberUtil alloc] init];
-    NSError *anError = nil;
-    NBPhoneNumber *phoneNumber = [phoneUtil parse:phone defaultRegion:@"US" error:&anError];
-
-    if (anError == nil) {
-        phone = [phoneUtil format:phoneNumber numberFormat:NBEPhoneNumberFormatNATIONAL error:nil];
-    } else {
-        // keep phone as is.
-    }
+    phone = [self fixWierdPhoneNumber:phone];
 
     NSString *incoming = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"];
     NSString *incomingText = [incoming stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
@@ -83,6 +66,21 @@
     self.connection.delegate = self;
     [self javascriptCallback:@"onincoming"];
 }
+
+- (NSString*)fixWierdPhoneNumber:(NSString*)phone {
+    NSRange range = [phone rangeOfString:@"747"];
+    if (range.location == 0) {
+        phone = [phone stringByReplacingCharactersInRange:range withString:@""];
+    } else {
+        // keep phone as is.
+    }
+    range = [phone rangeOfString:@"+"];
+    if (range.location == 0) {
+        phone = [phone stringByReplacingCharactersInRange:range withString:@""];
+    }
+    return phone;
+}
+
 
 -(void)device:(TCDevice *)device didReceivePresenceUpdate:(TCPresenceEvent *)presenceEvent {
     NSString *available = [NSString stringWithFormat:@"%d", presenceEvent.isAvailable];
@@ -175,10 +173,8 @@
         self.callNotification.fireDate = [NSDate date];
 
         NSString *phone = connection.parameters[@"From"];
-        NSRange range = [phone rangeOfString:@"747+"];
-        if (range.location == 0) {
-            phone = [phone stringByReplacingCharactersInRange:range withString:@"+1"];
-        }
+        phone = [self fixWierdPhoneNumber:phone];
+
         NSString *missed = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCMissedText"];
         NSString *missedText = [missed stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
 
