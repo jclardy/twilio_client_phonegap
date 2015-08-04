@@ -68,6 +68,7 @@
 }
 
 - (NSString*)fixWierdPhoneNumber:(NSString*)phone {
+    NSLog(@"Fixing number: %@", phone);
     NSRange range = [phone rangeOfString:@"747"];
     if (range.location == 0) {
         phone = [phone stringByReplacingCharactersInRange:range withString:@""];
@@ -78,6 +79,17 @@
     if (range.location == 0 && phone.length == 11) { // no country code
         phone = [phone stringByReplacingCharactersInRange:range withString:@""];
     }
+
+    NBPhoneNumberUtil *phoneUtil = [[NBPhoneNumberUtil alloc] init];
+    NSError *anError = nil;
+    NBPhoneNumber *phoneNumber = [phoneUtil parse:phone defaultRegion:@"US" error:&anError];
+
+    if (anError == nil) {
+        phone = [phoneUtil format:phoneNumber numberFormat:NBEPhoneNumberFormatNATIONAL error:nil];
+    } else {
+        // keep phone as is.
+    }
+
     return phone;
 }
 
@@ -113,19 +125,21 @@
     NSString *dataUrl = [NSString stringWithFormat:@"%@capability-token?account_session__token=%@&account_session__account__info__uuid=%@", serverURL, sessionToken, accountUUID];
     NSURL *url = [NSURL URLWithString:dataUrl];
 
-    NSData *data = [NSData dataWithContentsOfURL:url];
-    if (data != nil) {
-        NSDictionary *sipSession = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
 
-        NSString *token = sipSession[@"sip_auth"][@"password"];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSData *data = [NSData dataWithContentsOfURL:url];
+        if (data != nil) {
+            NSDictionary *sipSession = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
 
-        if (token.length > 0) {
-            NSLog(@"Got new Token: %@", token);
-            [[NSUserDefaults standardUserDefaults] setObject:token forKey:@"TwilioToken"];
-            [self setupDeviceWithToken:token];
+            NSString *token = sipSession[@"sip_auth"][@"password"];
+
+            if (token.length > 0) {
+                NSLog(@"Got new Token: %@", token);
+                [[NSUserDefaults standardUserDefaults] setObject:token forKey:@"TwilioToken"];
+                [self setupDeviceWithToken:token];
+            }
         }
-    }
-
+    });
 
 }
 
