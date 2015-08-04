@@ -51,7 +51,7 @@
 -(void)device:(TCDevice *)device didReceiveIncomingConnection:(TCConnection *)connection {
     self.callNotification = [[UILocalNotification alloc] init];
     if (self.callNotification == nil)
-            return;
+        return;
     self.callNotification.fireDate = [NSDate date];
 
     NSString *phone = connection.parameters[@"From"];
@@ -307,16 +307,16 @@
 }
 
 -(void)deviceSetupWithAccountSession:(CDVInvokedUrlCommand*)command {
-  self.callback = command.callbackId;
+    self.callback = command.callbackId;
 
-  [self setupDeviceWithAccountUUID:[command.arguments objectAtIndex:0] sessionToken:[command.arguments objectAtIndex:1] serverURL:[command.arguments objectAtIndex:2]];
+    [self setupDeviceWithAccountUUID:[command.arguments objectAtIndex:0] sessionToken:[command.arguments objectAtIndex:1] serverURL:[command.arguments objectAtIndex:2]];
 
-  // Disable sounds. was getting EXC_BAD_ACCESS
-  //self.device.incomingSoundEnabled   = NO;
-  //self.device.outgoingSoundEnabled   = NO;
-  //self.device.disconnectSoundEnabled = NO;
+    // Disable sounds. was getting EXC_BAD_ACCESS
+    //self.device.incomingSoundEnabled   = NO;
+    //self.device.outgoingSoundEnabled   = NO;
+    //self.device.disconnectSoundEnabled = NO;
 
-  // Local notification setup
+    // Local notification setup
     if ([[[UIDevice currentDevice] systemVersion] floatValue] > 8.0f) {
 
         UIUserNotificationType types = UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert;
@@ -326,7 +326,7 @@
         [[UIApplication sharedApplication] registerUserNotificationSettings:mySettings];
     }
 
-  [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(deviceStatusEvent) userInfo:nil repeats:NO];
+    [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(deviceStatusEvent) userInfo:nil repeats:NO];
 }
 
 -(void)openAppSettings:(CDVInvokedUrlCommand*)command {
@@ -453,7 +453,17 @@
 }
 
 -(void)connectionParameters:(CDVInvokedUrlCommand*)command {
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:[self.connection parameters]];
+    NSMutableDictionary *connectionParams = [[self.connection parameters] mutableCopy];
+
+    NSString *phone = self.connection.parameters[@"From"];
+    phone = [self fixWierdPhoneNumber:phone];
+    NSString *contactName = [self contactNameForPhoneNumber:phone];
+    if (contactName != nil) {
+        [connectionParams setObject:contactName forKey:@"FromContactName"];
+    }
+
+
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:connectionParams];
     [self performSelectorOnMainThread:@selector(writeJavascript:) withObject:[result toSuccessCallbackString:command.callbackId] waitUntilDone:NO];
 }
 
@@ -491,32 +501,64 @@
     if([mode isEqual: @"on"]) {
         UInt32 audioRouteOverride = kAudioSessionOverrideAudioRoute_Speaker;
         AudioSessionSetProperty (
-            kAudioSessionProperty_OverrideAudioRoute,
-            sizeof (audioRouteOverride),
-            &audioRouteOverride
-        );
+                                 kAudioSessionProperty_OverrideAudioRoute,
+                                 sizeof (audioRouteOverride),
+                                 &audioRouteOverride
+                                 );
     }
     else {
         UInt32 audioRouteOverride = kAudioSessionOverrideAudioRoute_None;
         AudioSessionSetProperty (
-            kAudioSessionProperty_OverrideAudioRoute,
-            sizeof (audioRouteOverride),
-            &audioRouteOverride
-        );
+                                 kAudioSessionProperty_OverrideAudioRoute,
+                                 sizeof (audioRouteOverride),
+                                 &audioRouteOverride
+                                 );
     }
 }
 
 /**
-  * Sets the text for notifications. Use %phone% to insert the formatted phone number into your string.
-  */
+ * Sets the text for notifications. Use %phone% to insert the formatted phone number into your string.
+ */
 -(void)setNotificationText:(CDVInvokedUrlCommand*)command {
-  NSString *incomingText = [command.arguments objectAtIndex:0];
-  NSString *missedText = [command.arguments objectAtIndex:1];
+    NSString *incomingText = [command.arguments objectAtIndex:0];
+    NSString *missedText = [command.arguments objectAtIndex:1];
 
-  [[NSUserDefaults standardUserDefaults] setObject:incomingText forKey:@"TCIncomingText"];
-  [[NSUserDefaults standardUserDefaults] setObject:missedText forKey:@"TCMissedText"];
-  [[NSUserDefaults standardUserDefaults] synchronize];
+    [[NSUserDefaults standardUserDefaults] setObject:incomingText forKey:@"TCIncomingText"];
+    [[NSUserDefaults standardUserDefaults] setObject:missedText forKey:@"TCMissedText"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
 }
+
+-(void)contactNameForPhone:(CDVInvokedUrlCommand*)command {
+    NSString *phone = [command.arguments objectAtIndex:0];
+
+    NSString *contactName = [self contactNameForPhoneNumber:phone];
+
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:@{@"phone" : phone, @"name" : contactName}];
+    [self performSelectorOnMainThread:@selector(writeJavascript:) withObject:[result toSuccessCallbackString:command.callbackId] waitUntilDone:NO];
+}
+
+-(void)requestContactsAccess:(CDVInvokedUrlCommand*)command {
+    // Create a new address book object with data from the Address Book database
+    CFErrorRef error = nil;
+    ABAddressBookRef addressBook = ABAddressBookCreateWithOptions(NULL, &error);
+    if (!addressBook) {
+
+    } else if (error) {
+        CFRelease(addressBook);
+
+    }
+
+    // Requests access to address book data from the user
+    ABAddressBookRequestAccessWithCompletion(addressBook, ^(bool granted, CFErrorRef error) {
+        NSString *state = @"true";
+        if (!granted) {
+            state = @"false";
+        }
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:state];
+        [self performSelectorOnMainThread:@selector(writeJavascript:) withObject:[result toSuccessCallbackString:command.callbackId] waitUntilDone:NO];
+    });
+}
+
 
 # pragma mark private methods
 

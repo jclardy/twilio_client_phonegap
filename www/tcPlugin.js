@@ -58,6 +58,14 @@
       Cordova.exec(null, null, "TCPlugin", "setNotificationText", [incomingText, missedConnectionText]);
     }
 
+    TwilioPlugin.Device.prototype.contactNameForPhone = function(phone, fn) {
+      Cordova.exec(fn, null, "TCPlugin", "contactNameForPhone", [phone]);
+    }
+
+    TwilioPlugin.Device.prototype.requestContactsAccess = function(fn) {
+      Cordova.exec(fn, null, "TCPlugin", "requestContactsAccess", []);
+    }
+
     TwilioPlugin.Device.prototype.openAppSettings = function() {
       Cordova.exec(null, null, "TCPlugin", "openAppSettings", []);
     }
