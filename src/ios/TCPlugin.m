@@ -9,6 +9,7 @@
 #import "TCPlugin.h"
 #import  <AVFoundation/AVFoundation.h>
 #import "NBPhoneNumberUtil.h"
+#import <AddressBook/AddressBook.h>
 
 @interface TCPlugin() {
     TCDevice     *_device;
@@ -55,6 +56,10 @@
 
     NSString *phone = connection.parameters[@"From"];
     phone = [self fixWierdPhoneNumber:phone];
+    NSString *contactName = [self contactNameForPhoneNumber:phone];
+    if (contactName != nil) {
+        phone = contactName;
+    }
 
     NSString *incoming = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCIncomingText"];
     NSString *incomingText = [incoming stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
@@ -93,6 +98,78 @@
     return phone;
 }
 
+-(NSString*)contactNameForPhoneNumber:(NSString *)phoneNumber {
+
+    // Format all numbers as e164
+    NBPhoneNumberUtil *phoneUtil = [[NBPhoneNumberUtil alloc] init];
+    NSError *anError = nil;
+    NBPhoneNumber *nbPhoneNumber = [phoneUtil parse:phoneNumber defaultRegion:@"US" error:&anError];
+
+    if (anError == nil) {
+        phoneNumber = [phoneUtil format:nbPhoneNumber numberFormat:NBEPhoneNumberFormatINTERNATIONAL error:nil];
+    } else {
+        return nil;
+    }
+
+    // Create a new address book object with data from the Address Book database
+    CFErrorRef error = nil;
+    ABAddressBookRef addressBook = ABAddressBookCreateWithOptions(NULL, &error);
+    if (!addressBook) {
+        return nil;
+    } else if (error) {
+        CFRelease(addressBook);
+        return nil;
+    }
+
+    // Requests access to address book data from the user
+    ABAddressBookRequestAccessWithCompletion(addressBook, ^(bool granted, CFErrorRef error) {});
+
+    // Build a predicate that searches for contacts that contain the phone number
+    NSPredicate *predicate = [NSPredicate predicateWithBlock: ^(id record, NSDictionary *bindings) {
+        ABMultiValueRef phoneNumbers = ABRecordCopyValue( (__bridge ABRecordRef)record, kABPersonPhoneProperty);
+        BOOL result = NO;
+        for (CFIndex i = 0; i < ABMultiValueGetCount(phoneNumbers); i++) {
+            NSString *contactPhoneNumber = (__bridge_transfer NSString *) ABMultiValueCopyValueAtIndex(phoneNumbers, i);
+            NSError *error = nil;
+
+            NBPhoneNumber *contactNBPhoneNumber = [phoneUtil parse:contactPhoneNumber defaultRegion:@"US" error:&error];
+
+            if (error == nil) {
+                contactPhoneNumber = [phoneUtil format:contactNBPhoneNumber numberFormat:NBEPhoneNumberFormatINTERNATIONAL error:nil];
+            } else {
+                return NO;
+            }
+
+            if ([contactPhoneNumber rangeOfString:phoneNumber].location != NSNotFound) {
+                result = YES;
+                break;
+            }
+        }
+        CFRelease(phoneNumbers);
+        return result;
+    }];
+
+    // Search the users contacts for contacts that contain the phone number
+    NSArray *allPeople = (NSArray *)CFBridgingRelease(ABAddressBookCopyArrayOfAllPeople(addressBook));
+    NSArray *filteredContacts = [allPeople filteredArrayUsingPredicate:predicate];
+    CFRelease(addressBook);
+
+    if ([filteredContacts count] > 0) {
+        id person = [filteredContacts objectAtIndex:0];
+
+        NSString *firstName = @"";
+        NSString *lastName = @"";
+
+        // Get the name of the contact
+        firstName = (__bridge_transfer NSString*)ABRecordCopyValue((__bridge ABRecordRef)(person), kABPersonFirstNameProperty);
+        lastName = (__bridge_transfer NSString*)ABRecordCopyValue((__bridge ABRecordRef)(person), kABPersonLastNameProperty);
+
+        return [NSString stringWithFormat:@"%@ %@", firstName, lastName];
+    } else {
+        return nil;
+    }
+}
+
 
 -(void)device:(TCDevice *)device didReceivePresenceUpdate:(TCPresenceEvent *)presenceEvent {
     NSString *available = [NSString stringWithFormat:@"%d", presenceEvent.isAvailable];
@@ -113,8 +190,8 @@
         return;
     }
 
-    NSString *accountUUID = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCAccountUUID"]; //trapit
-    NSString *sessionToken = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCSessionToken"]; //whatever
+    NSString *accountUUID = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCAccountUUID"];
+    NSString *sessionToken = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCSessionToken"];
     NSString *serverURL = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCURL"];
 
     //Check if plugin has been setup.
@@ -188,6 +265,10 @@
 
         NSString *phone = connection.parameters[@"From"];
         phone = [self fixWierdPhoneNumber:phone];
+        NSString *contactName = [self contactNameForPhoneNumber:phone];
+        if (contactName != nil) {
+            phone = contactName;
+        }
 
         NSString *missed = [[NSUserDefaults standardUserDefaults] objectForKey:@"TCMissedText"];
         NSString *missedText = [missed stringByReplacingOccurrencesOfString:@"%phone%" withString:phone];
