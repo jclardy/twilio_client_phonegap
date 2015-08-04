@@ -234,7 +234,7 @@
   [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(deviceStatusEvent) userInfo:nil repeats:NO];
 }
 
--(void)openAppSettings {
+-(void)openAppSettings:(CDVInvokedUrlCommand*)command {
     if (&UIApplicationOpenSettingsURLString != NULL) {
         NSURL *url = [NSURL URLWithString:UIApplicationOpenSettingsURLString];
         [[UIApplication sharedApplication] openURL:url];
@@ -298,6 +298,9 @@
 -(void)reset:(CDVInvokedUrlCommand*)command {
     [[NSUserDefaults standardUserDefaults] setObject:nil forKey:@"TCAccountUUID"];
     [[NSUserDefaults standardUserDefaults] setObject:nil forKey:@"TCSessionToken"];
+    [[NSUserDefaults standardUserDefaults] setObject:nil forKey:@"TCURL"];
+    [[NSUserDefaults standardUserDefaults] setObject:nil forKey:@"TwilioToken"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
 
     [self.device disconnectAll];
     [self.device setDelegate:nil];
