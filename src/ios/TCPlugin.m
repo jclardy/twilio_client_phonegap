@@ -164,6 +164,15 @@
         firstName = (__bridge_transfer NSString*)ABRecordCopyValue((__bridge ABRecordRef)(person), kABPersonFirstNameProperty);
         lastName = (__bridge_transfer NSString*)ABRecordCopyValue((__bridge ABRecordRef)(person), kABPersonLastNameProperty);
 
+        if (firstName == nil && lastName == nil) {
+            return nil;
+        }
+        if (firstName == nil) {
+            firstName = @"";
+        }
+        if (lastName == nil) {
+            lastName = @"";
+        }
         return [NSString stringWithFormat:@"%@ %@", firstName, lastName];
     } else {
         return nil;
@@ -531,10 +540,14 @@
 -(void)contactNameForPhone:(CDVInvokedUrlCommand*)command {
     NSString *phone = [command.arguments objectAtIndex:0];
 
-    NSString *contactName = [self contactNameForPhoneNumber:phone];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSString *contactName = [self contactNameForPhoneNumber:phone];
 
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:@{@"phone" : phone, @"name" : contactName}];
-    [self performSelectorOnMainThread:@selector(writeJavascript:) withObject:[result toSuccessCallbackString:command.callbackId] waitUntilDone:NO];
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:@{@"phone" : phone, @"name" : contactName ? contactName : @""}];
+        [self performSelectorOnMainThread:@selector(writeJavascript:) withObject:[result toSuccessCallbackString:command.callbackId] waitUntilDone:NO];
+    });
+
+
 }
 
 -(void)requestContactsAccess:(CDVInvokedUrlCommand*)command {
