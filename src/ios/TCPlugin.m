@@ -572,6 +572,12 @@
     });
 }
 
+-(void)requestNewToken:(CDVInvokedUrlCommand*)command {
+  [[NSUserDefaults standardUserDefaults] setObject:nil forKey:@"TwilioToken"];
+  [[NSUserDefaults standardUserDefaults] synchronize];
+  [self getTwilioToken];
+}
+
 
 # pragma mark private methods
 

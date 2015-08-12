@@ -42,6 +42,11 @@
 
     }
 
+    TwilioPlugin.Device.prototype.requestNewToken = function() {
+      Cordova.exec(null, null, "TCPlugin", "requestNewToken", []);
+
+    }
+
     // polymorphic function. if called with function as an argument, the function is invoked
     // when a connection has been established. if called with an object a connection is established with those options
     TwilioPlugin.Device.prototype.connect = function(argument) {
